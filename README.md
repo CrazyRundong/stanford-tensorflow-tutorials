@@ -1,3 +1,6 @@
+> forked from stanford CS20si by Rundong Li.<br>
+> Just for practicing Tensorflow.<br>
+> **F\*\*k Tensorflow!**
 # tf-stanford-tutorials
 This repository contains code examples for the course CS 20SI: TensorFlow for Deep Learning Research. <br>
 It will be updated as the class progresses. <br>

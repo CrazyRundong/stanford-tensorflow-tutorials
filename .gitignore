@@ -12,3 +12,8 @@ examples/chatbot/checkpoints/*
 examples/chatbot/data_analysis.py
 
 assignments/chatbot/processed/*
+.idea/
+
+# tensor board dirs
+tb
+tb_*
