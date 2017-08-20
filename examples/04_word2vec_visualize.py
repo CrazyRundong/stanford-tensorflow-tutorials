@@ -47,7 +47,7 @@ class SkipGramModel:
     def _create_embedding(self):
         """ Step 2: define weights. In word2vec, it's actually the weights that we care about """
         # Assemble this part of the graph on the CPU. You can change it to GPU if you have GPU
-        with tf.device('/cpu:0'):
+        with tf.device('/gpu:0'):
             with tf.name_scope("embed"):
                 self.embed_matrix = tf.Variable(tf.random_uniform([self.vocab_size, 
                                                                     self.embed_size], -1.0, 1.0), 
@@ -55,7 +55,7 @@ class SkipGramModel:
 
     def _create_loss(self):
         """ Step 3 + 4: define the model + the loss function """
-        with tf.device('/cpu:0'):
+        with tf.device('/gpu:0'):
             with tf.name_scope("loss"):
                 # Step 3: define the inference
                 embed = tf.nn.embedding_lookup(self.embed_matrix, self.center_words, name='embed')
@@ -76,7 +76,7 @@ class SkipGramModel:
                                                     num_classes=self.vocab_size), name='loss')
     def _create_optimizer(self):
         """ Step 5: define optimizer """
-        with tf.device('/cpu:0'):
+        with tf.device('/gpu:0'):
             self.optimizer = tf.train.GradientDescentOptimizer(self.lr).minimize(self.loss, 
                                                               global_step=self.global_step)
 
@@ -101,7 +101,10 @@ def train_model(model, batch_gen, num_train_steps, weights_fld):
 
     initial_step = 0
     utils.make_dir('checkpoints')
-    with tf.Session() as sess:
+    # hack tf-gpu windows
+    cfg = tf.ConfigProto()
+    cfg.gpu_options.allow_growth = True
+    with tf.Session(config=cfg) as sess:
         sess.run(tf.global_variables_initializer())
         ckpt = tf.train.get_checkpoint_state(os.path.dirname('checkpoints/checkpoint'))
         # if that checkpoint exists, restore from checkpoint
