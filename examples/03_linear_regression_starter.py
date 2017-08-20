@@ -47,7 +47,7 @@ loss = tf.square(Y_predicted - Y, name="loss")
 
 
 # Add Huber Loss
-def huber_loss(predict, gt, delta=0):
+def huber_loss(predict, gt, delta=0.):
     residual = tf.abs(predict - gt)
     condition = tf.less(residual, delta)
     small_loss = 0.5 * tf.square(residual)
