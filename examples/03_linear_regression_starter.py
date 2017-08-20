@@ -46,6 +46,17 @@ Y_predicted = X * w + b
 loss = tf.square(Y_predicted - Y, name="loss")
 
 
+# Add Huber Loss
+def huber_loss(predict, gt, delta=0):
+    residual = tf.abs(predict - gt)
+    condition = tf.less(residual, delta)
+    small_loss = 0.5 * tf.square(residual)
+    large_loss = delta * tf.abs(residual) - 0.5 * tf.square(delta)
+    return tf.where(condition, small_loss, large_loss)
+
+hub_loss = huber_loss(Y_predicted, Y, 0.1)
+
+
 # Step 6: using gradient descent with learning rate of 0.01 to minimize loss
 opt = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(loss)
 
@@ -62,7 +73,7 @@ with tf.Session() as sess:
         for x, y in data:
             # Session runs optimizer to minimize loss and fetch the value of loss. Name the received value as l
             # TO DO: write sess.run()
-            _, l = sess.run([opt, loss], {X: x, Y: y})
+            _, l = sess.run([opt, hub_loss], {X: x, Y: y})
             total_loss += l
         print("Epoch {0}: {1}".format(i, total_loss / n_samples))
     writer.close()
