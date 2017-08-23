@@ -113,13 +113,13 @@ def word2vec(batch_gen):
         embedding = tb_cfg.embeddings.add()
         embedding.tensor_name = embed_mat_var.name
         embedding.metadata_path = "processed/vocab_1000.tsv"
-        summary_writer = tf.summary.FileWriter("processed")
-        projector.visualize_embeddings(summary_writer, tb_cfg)
+        # writer = tf.summary.FileWriter("processed")
+        projector.visualize_embeddings(writer, tb_cfg)
 
         saver_embed = tf.train.Saver((embed_mat_var,))
         saver_embed.save(sess, "processed/model.ckpt", 1)
 
-        summary_writer.close()
+        # writer.close()
         writer.close()
 
 

@@ -37,7 +37,6 @@ def get_labels_and_files(folder, number):
   filelists = []
   for label in range(0,10):
     filelist = []
-    filelists.append(filelist);
     dirname = os.path.join(folder, chr(ord('A') + label))
     for file in os.listdir(dirname):
       if (file.endswith('.png')):
@@ -49,6 +48,7 @@ def get_labels_and_files(folder, number):
     # sort each list of files so they start off in the same order
     # regardless of how the order the OS returns them in
     filelist.sort()
+    filelists.append(filelist)
 
   # Take the specified number of items for each label and
   # build them into an array of (label, filename) pairs
