@@ -15,7 +15,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 import time 
 
 import tensorflow as tf
-import tf.contrib.layers as layers
+import tensorflow.contrib.layers as layers
 from tensorflow.examples.tutorials.mnist import input_data
 
 import utils
