@@ -61,17 +61,35 @@ def _create_content_loss(p, f):
         (read the assignment handout if you're confused)
         Note: we won't use the coefficient 0.5 as defined in the paper
         but the coefficient as defined in the assignment handout.
+        in this implementation, the coefficient is
+        1 / ( 4 * mul(p.shape))
     Output:
         the content loss
 
     """
-    pass
+    s = tf.cumprod(p.shape)[-1]
+    err = tf.norm(p - f) / (4 * s)
+
+    return err
+
 
 def _gram_matrix(F, N, M):
     """ Create and return the gram matrix for tensor F
+
+    Inputs:
+        N: num of filters
+        M: H * W of feature map
+        F: feature maps \in \mathbb{R}^{batch_size * H * W * num_channel}
         Hint: you'll first have to reshape F
     """
-    pass
+    F_flatten = tf.reshape(F, (1, M, N))
+    G = np.zeros((N, N), dtype=np.float32)
+    for i in range(N):
+        for j in range(N):
+            # TODO: this maybe inefficient, move data: GPU -> CPU -> GPU
+            G[i, j] = tf.matmul(F_flatten[0, :, i], F_flatten[0, :, j], transpose_b=True).eval()
+
+    return tf.Variable(G, dtype=tf.float32)
 
 def _single_style_loss(a, g):
     """ Calculate the style loss at a certain layer
@@ -85,7 +103,13 @@ def _single_style_loss(a, g):
         2. we'll use the same coefficient for style loss as in the paper
         3. a and g are feature representation, not gram matrices
     """
-    pass
+    h, w, c = a.shape[-3]
+    N = c
+    M = h * w
+    A = _gram_matrix(a, N, M)
+    G = _gram_matrix(g, N, M)
+
+    return tf.norm(A - G) / (4 * N * N * M * M)
 
 def _create_style_loss(A, model):
     """ Return the total style loss
@@ -94,8 +118,8 @@ def _create_style_loss(A, model):
     E = [_single_style_loss(A[i], model[STYLE_LAYERS[i]]) for i in range(n_layers)]
     
     ###############################
-    ## TO DO: return total style loss
-    pass
+    ## TODO: assign different weight to each layer
+    return tf.reduce_sum(E) / n_layers
     ###############################
 
 def _create_losses(model, input_image, content_image, style_image):
@@ -113,7 +137,9 @@ def _create_losses(model, input_image, content_image, style_image):
         ##########################################
         ## TO DO: create total loss. 
         ## Hint: don't forget the content loss and style loss weights
-        
+        alpha = 1.  # weight of content
+        beta = 1. / 50.  # weight of style
+        total_loss = alpha * content_loss + beta * style_loss
         ##########################################
 
     return content_loss, style_loss, total_loss
