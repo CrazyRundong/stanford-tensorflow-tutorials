@@ -14,17 +14,26 @@ import time
 
 import numpy as np
 import tensorflow as tf
+from PIL import Image
 
 import vgg_model
 import utils
 
 # parameters to manage experiments
-STYLE = 'guernica'
-CONTENT = 'deadpool'
+STYLE = 'starry_night'
+CONTENT = 'rundong_teddy-kelley'
 STYLE_IMAGE = 'styles/' + STYLE + '.jpg'
 CONTENT_IMAGE = 'content/' + CONTENT + '.jpg'
-IMAGE_HEIGHT = 250
-IMAGE_WIDTH = 333
+with Image.open(CONTENT_IMAGE) as content_img:
+    style_img = Image.open(STYLE_IMAGE)
+    ws, hs = style_img.size
+    wc, hc = content_img.size
+    w = min(ws, wc)
+    h = min(hs, hc)
+    del style_img
+RESIZE_RATIO = 1.
+IMAGE_HEIGHT = int(h * RESIZE_RATIO)
+IMAGE_WIDTH = int(w * RESIZE_RATIO)
 NOISE_RATIO = 0.6 # percentage of weight of the noise for intermixing with the content image
 
 # Layers used for style features. You can change this.
@@ -68,7 +77,7 @@ def _create_content_loss(p, f):
 
     """
     s = tf.cumprod(p.shape)[-1]
-    err = tf.norm(p - f) / (4 * s)
+    err = tf.norm(p - f) / tf.to_float(4 * s)
 
     return err
 
@@ -83,13 +92,13 @@ def _gram_matrix(F, N, M):
         Hint: you'll first have to reshape F
     """
     F_flatten = tf.reshape(F, (1, M, N))
-    G = np.zeros((N, N), dtype=np.float32)
-    for i in range(N):
-        for j in range(N):
-            # TODO: this maybe inefficient, move data: GPU -> CPU -> GPU
-            G[i, j] = tf.matmul(F_flatten[0, :, i], F_flatten[0, :, j], transpose_b=True).eval()
+    # G = np.zeros((N, N), dtype=np.float32)
+    # for i in range(N):
+    #     for j in range(N):
+    #         G[i, j] = tf.matmul(F_flatten[0, :, i], F_flatten[0, :, j], transpose_b=True).eval()
+    G = tf.matmul(F_flatten, F_flatten, transpose_a=True)
 
-    return tf.Variable(G, dtype=tf.float32)
+    return G
 
 def _single_style_loss(a, g):
     """ Calculate the style loss at a certain layer
@@ -103,13 +112,13 @@ def _single_style_loss(a, g):
         2. we'll use the same coefficient for style loss as in the paper
         3. a and g are feature representation, not gram matrices
     """
-    h, w, c = a.shape[-3]
+    h, w, c = a.shape[-3:]
     N = c
     M = h * w
     A = _gram_matrix(a, N, M)
     G = _gram_matrix(g, N, M)
 
-    return tf.norm(A - G) / (4 * N * N * M * M)
+    return tf.norm(A - G) / tf.to_float(4 * N * N * M * M)
 
 def _create_style_loss(A, model):
     """ Return the total style loss
@@ -119,7 +128,7 @@ def _create_style_loss(A, model):
     
     ###############################
     ## TODO: assign different weight to each layer
-    return tf.reduce_sum(E) / n_layers
+    return tf.reduce_sum([e * w for e, w in zip(E, W)])
     ###############################
 
 def _create_losses(model, input_image, content_image, style_image):
@@ -135,10 +144,10 @@ def _create_losses(model, input_image, content_image, style_image):
         style_loss = _create_style_loss(A, model)
 
         ##########################################
-        ## TO DO: create total loss. 
+        ## TODO: create total loss.
         ## Hint: don't forget the content loss and style loss weights
-        alpha = 1.  # weight of content
-        beta = 1. / 50.  # weight of style
+        alpha = 1. / 1000.  # weight of content
+        beta = 1.  # weight of style
         total_loss = alpha * content_loss + beta * style_loss
         ##########################################
 
@@ -148,26 +157,37 @@ def _create_summary(model):
     """ Create summary ops necessary
         Hint: don't forget to merge them
     """
-    pass
+    with tf.variable_scope("summary"):
+        tf.summary.scalar("content_loss", model["content_loss"])
+        tf.summary.scalar("style_loss", model["style_loss"])
+        tf.summary.scalar("total_loss", model["total_loss"])
+        sum_op = tf.summary.merge_all()
+
+    return sum_op
 
 def train(model, generated_image, initial_image):
     """ Train your model.
     Don't forget to create folders for checkpoints and outputs.
     """
     skip_step = 1
-    with tf.Session() as sess:
+    cfg = tf.ConfigProto()
+    cfg.gpu_options.allow_growth = True
+    with tf.Session(config=cfg) as sess:
         saver = tf.train.Saver()
         ###############################
-        ## TO DO: 
+        ## TODO:
         ## 1. initialize your variables
+        sess.run(tf.global_variables_initializer())
         ## 2. create writer to write your graph
+        writer = tf.summary.FileWriter("summary", sess.graph)
         ###############################
         sess.run(generated_image.assign(initial_image))
         ckpt = tf.train.get_checkpoint_state(os.path.dirname('checkpoints/checkpoint'))
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(sess, ckpt.model_checkpoint_path)
         initial_step = model['global_step'].eval()
-        
+
+        # generated image tensor
         start_time = time.time()
         for index in range(initial_step, ITERS):
             if index >= 5 and index < 20:
@@ -178,8 +198,10 @@ def train(model, generated_image, initial_image):
             sess.run(model['optimizer'])
             if (index + 1) % skip_step == 0:
                 ###############################
-                ## TO DO: obtain generated image and loss
-
+                ## TODO: obtain generated image and loss
+                gen_image, summary, total_loss = sess.run([generated_image,
+                                                           model["summary_op"],
+                                                           model["total_loss"]])
                 ###############################
                 gen_image = gen_image + MEAN_PIXELS
                 writer.add_summary(summary, global_step=index)
@@ -214,8 +236,10 @@ def main():
     model['content_loss'], model['style_loss'], model['total_loss'] = _create_losses(model, 
                                                     input_image, content_image, style_image)
     ###############################
-    ## TO DO: create optimizer
-    ## model['optimizer'] = ...
+    ## TODO: create optimizer
+    # and record global step
+    model['optimizer'] = tf.train.AdamOptimizer(learning_rate=LR).minimize(model['total_loss'],
+                                                                           global_step=model["global_step"])
     ###############################
     model['summary_op'] = _create_summary(model)
 
